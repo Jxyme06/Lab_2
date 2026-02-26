@@ -1,52 +1,51 @@
-.section .data
-.global hamming_distance
-
-msg_1:  .ascii "This is a test\n"
-len_1 = . - msg_1
-msg_2:  .ascii "of the emergency broadcast\n"
-len_2 = . - msg_2
-format_str: .ascii "Hamming Distance: %ld\n"
+# C code reference and how they work together:
+#
+# C code that calls this file is:
+#   int hamming_distance(char* string_1, char* string_2)
+#
+# By the standard rules for integer/pointer arguments passed, the order for registers is:
+#   1st -> RDI, 2nd -> RSI, 3rd -> RDX, 4th -> RCX, 5th -> R8, 6th -> R9
+#   Return value in return register which is rax
+# So,
+#   char* string_1 = %rdi
+#   char* string_2 = %rsi
+#   return value in rax register
 
 .section .text
-.global _start
+.globl hamming_distance
+
 hamming_distance:
+    xorq %rax, %rax      # Clear the rax register
 
-    # Move address values of the text into r8 and r9
-    mov %rdi, %r8 # r8 = string_1
-    mov %rsi, %r9 # r9 = string_2
-    # Move the lengths of the 2 texts into r10 and r11
-    mov %rdx, %r10 # r10 = len_1
-    mov %rcx, %r11 # r11 = len_2
+loop_chars:
+    movb  (%rdi), %cl       # Move the ASCII value of the current character of the first string stored at the address the %rdi register is pointing to (Give the cl register the essentially dereferenced byte at rdi which is basically the ASCII value of the character)
+    movb  (%rsi), %dl       # Move the ASCII value of the current character of the second string to the dl register
 
+    # If the current character has a value of 0, terminate the program (null character terminator has a value of 0b00000000)
+    cmpb $0, %cl
+    je done
+    cmpb $0, %dl           
+    je done
 
-    mov %r10, %r12
-    cmp %r11, %r10
-    cmovg %r11, %r12
+    xorb %dl, %cl        # Check by how many bits the characters differ and store the result in the cl register
+    movb $8, %r8b        # Initialize loop counter = 8
 
+# Count all bits in cl using 8 shifts and comparing the lowest each time
+check_bits:
+    testb $1, %cl            # Check if the lowest bit differed or not (1 means they were different so increase hamming distance and 0 means they were the same) 
+    jz bit_was_zero          # If the bit was 0 they were the same so jump to not increase the hamming distance
+    incq %rax                # Increase the total hamming distance by 1
 
-    # Initialize the counter for the actual character index of the strings
-    mov $0, %rcx
-    # Initialize the counter to count down to loop the total characters in the string later
-    mov $0, %r13
-    
+bit_was_zero:
+    shrb $1, %cl             # Shift right by 1 so the next bit becomes lowest
+    decb %r8b                # Decrement the counter by 1
+    jne check_bits           # If the counter hits 0 go to repeat this process for the next byte(character)
 
-    loop_start:
+    incq %rdi                # Increment the rdi by 1 which sets it to the next character in the string
+    incq %rsi                # Increment the rsi by 1 which sets it to the next character in the string
+    jmp loop_chars           # Restart the loop for the next character
 
-        # Move the first character into the al register and bl register
-        movb (%r8, %rcx, 1), %al
-        movb (%r9, %rcx, 1), %bl
+done:
+    ret                      # Return the hamming distance (returns the rax register)
 
-        # If the bits differ increment the hamming
-        xorb %al, %bl
-        movzbq %bl, %rax
-
-        popcnt %rax, %rax
-        add %rax, %r13
-
-        # Increase the index counter by 1 and decrease the character track by 1 to loop the correct number of times
-        inc %rcx
-        dec %r12
-        jnz loop_start
-
-    mov %r13, %rax
-    ret
+.section .note.GNU-stack,"",@progbits           # Avoid executable stack warning
