@@ -33,10 +33,10 @@ loop_chars:
 # Count all bits in cl using 8 shifts and comparing the lowest each time
 check_bits:
     testb $1, %cl            # Check if the lowest bit differed or not (1 means they were different so increase hamming distance and 0 means they were the same) 
-    jz bit_was_zero          # If the bit was 0 they were the same so jump to not increase the hamming distance
+    jz equal_value           # If the bit was 0 they were the same so jump to not increase the hamming distance
     incq %rax                # Increase the total hamming distance by 1
 
-bit_was_zero:
+equal_value:
     shrb $1, %cl             # Shift right by 1 so the next bit becomes lowest
     decb %r8b                # Decrement the counter by 1
     jne check_bits           # If the counter hits 0 go to repeat this process for the next byte(character)
